@@ -3,10 +3,9 @@ package ru.job4j.service;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import ru.job4j.domain.Customer;
-import ru.job4j.domain.Order;
-import ru.job4j.domain.OrderStatus;
-import ru.job4j.domain.Status;
+import ru.job4j.client.DishClient;
+import ru.job4j.domain.*;
+import ru.job4j.domain.dto.DishDTO;
 import ru.job4j.domain.dto.OrderDTO;
 import ru.job4j.domain.dto.OrderStatusDTO;
 import ru.job4j.repository.OrderRepository;
@@ -22,26 +21,27 @@ public class OrderServiceImpl implements OrderService {
 
     private final OrderRepository orderRepository;
     private final OrderStatusService orderStatusService;
+    private final DishClient dishClient;
 
     @Override
     public List<OrderDTO> findAll() {
         return orderRepository.findAll()
                 .stream()
-                .map(this::getWithOrderStatus)
+                .map(this::mapOrderToOrderDTO)
                 .collect(Collectors.toList());
     }
 
     @Override
     public Optional<OrderDTO> findById(int id) {
         return orderRepository.findById(id)
-                .map(this::getWithOrderStatus);
+                .map(this::mapOrderToOrderDTO);
     }
 
     @Override
     public List<OrderDTO> findByCustomerId(int id) {
         return orderRepository.findByCustomer(new Customer(id))
                 .stream()
-                .map(this::getWithOrderStatus)
+                .map(this::mapOrderToOrderDTO)
                 .collect(Collectors.toList());
     }
 
@@ -54,7 +54,7 @@ public class OrderServiceImpl implements OrderService {
             log.error("Save or Update was wrong", e);
         }
         return order.getId() != 0
-                ? Optional.of(getWithOrderStatus(order))
+                ? Optional.of(mapOrderToOrderDTO(order))
                 : Optional.empty();
     }
 
@@ -65,12 +65,17 @@ public class OrderServiceImpl implements OrderService {
         return order.isPresent();
     }
 
-    private OrderDTO getWithOrderStatus(Order order) {
+    private OrderDTO mapOrderToOrderDTO(Order order) {
+        List<DishDTO> dishesDto = order.getDishes().stream()
+                .map(dish -> dishClient.getDishByName(dish.getName()))
+                .toList();
+
         Optional<OrderStatus> orderStatus = orderStatusService.findLastByOrderId(order.getId());
+
         return new OrderDTO(
                 order.getId(),
                 order.getCustomer(),
-                order.getDishes(),
+                dishesDto,
                 orderStatus.map(OrderStatus::getStatus).orElse(Status.ERROR)
         );
     }

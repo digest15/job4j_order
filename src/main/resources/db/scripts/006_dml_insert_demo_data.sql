@@ -1,6 +1,6 @@
 INSERT INTO customers (id, name) VALUES (1, 'Petr Arsentev');
 
-INSERT INTO dishes (id, name, description) VALUES (1, 'Hot Dog', 'Dog and Dough');
+INSERT INTO dishes (id, name) VALUES (1, 'Hot Dog');
 
 INSERT INTO orders (id, customer_id) VALUES (1, 1);
 
