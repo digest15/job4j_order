@@ -2,6 +2,7 @@ package ru.job4j.service;
 
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import ru.job4j.client.DishClient;
 import ru.job4j.domain.*;
@@ -22,6 +23,7 @@ public class OrderServiceImpl implements OrderService {
     private final OrderRepository orderRepository;
     private final OrderStatusService orderStatusService;
     private final DishClient dishClient;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
 
     @Override
     public List<OrderDTO> findAll() {
@@ -50,12 +52,20 @@ public class OrderServiceImpl implements OrderService {
         try {
             orderRepository.save(order);
             orderStatusService.save(new OrderStatusDTO(order.getId(), Status.NEW));
+
         } catch (Exception e) {
             log.error("Save or Update was wrong", e);
         }
-        return order.getId() != 0
+
+        Optional<OrderDTO> optOrder = order.getId() != 0
                 ? Optional.of(mapOrderToOrderDTO(order))
                 : Optional.empty();
+
+        optOrder.ifPresent(o ->
+                kafkaTemplate.send("job4j_orders", o)
+        );
+
+        return optOrder;
     }
 
     @Override
