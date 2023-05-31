@@ -1,7 +1,10 @@
 package ru.job4j.service;
 
-import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import ru.job4j.domain.Order;
 import ru.job4j.domain.OrderStatus;
@@ -12,11 +15,15 @@ import java.util.List;
 import java.util.Optional;
 
 @Service
-@AllArgsConstructor
+@RequiredArgsConstructor
 @Slf4j
 public class OrderStatusServiceImpl implements OrderStatusService {
 
-    private OrderStatusRepository orderStatusRepository;
+    private final OrderStatusRepository orderStatusRepository;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
+
+    @Value("${kafka-notification-status-topic}")
+    private String notificationStatusTopicName;
 
     @Override
     public List<OrderStatus> findAll() {
@@ -40,20 +47,7 @@ public class OrderStatusServiceImpl implements OrderStatusService {
 
     @Override
     public Optional<OrderStatus> save(OrderStatusDTO orderStatusDto) {
-        OrderStatus orderStatus = null;
-        try {
-            orderStatus = orderStatusRepository.save(new OrderStatus(
-                            orderStatusDto.getOrderId(),
-                            orderStatusDto.getStatus()
-                    )
-            );
-        } catch (Exception e) {
-            log.error("Save or Update was wrong", e);
-        }
-
-        return orderStatus != null
-                ? Optional.of(orderStatus)
-                : Optional.empty();
+        return save(new OrderStatus(orderStatusDto.getOrderId(), orderStatusDto.getStatus()));
     }
 
     @Override
@@ -61,5 +55,30 @@ public class OrderStatusServiceImpl implements OrderStatusService {
         Optional<OrderStatus> orderStatus = orderStatusRepository.findById(id);
         orderStatus.ifPresent(orderStatusRepository::delete);
         return orderStatus.isPresent();
+    }
+
+    @Override
+    @KafkaListener(topics = "job4j_orders_status")
+    public void receiveStatus(OrderStatus orderStatus) {
+        log.debug(">>>>>>>>>>>>>>>>>> " + orderStatus);
+
+        orderStatus.setId(0);
+        Optional<OrderStatus> saved = save(orderStatus);
+
+        saved.ifPresent(status ->
+                kafkaTemplate.send(notificationStatusTopicName, status)
+        );
+    }
+
+    private Optional<OrderStatus> save(OrderStatus orderStatus) {
+        try {
+            orderStatus = orderStatusRepository.save(orderStatus);
+        } catch (Exception e) {
+            log.error("Save or Update was wrong", e);
+        }
+
+        return orderStatus != null
+                ? Optional.of(orderStatus)
+                : Optional.empty();
     }
 }

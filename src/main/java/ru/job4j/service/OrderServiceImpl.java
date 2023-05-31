@@ -1,7 +1,8 @@
 package ru.job4j.service;
 
-import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import ru.job4j.client.DishClient;
@@ -16,7 +17,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
-@AllArgsConstructor
+@RequiredArgsConstructor
 @Slf4j
 public class OrderServiceImpl implements OrderService {
 
@@ -24,6 +25,9 @@ public class OrderServiceImpl implements OrderService {
     private final OrderStatusService orderStatusService;
     private final DishClient dishClient;
     private final KafkaTemplate<String, Object> kafkaTemplate;
+
+    @Value("${kafka-order-topic}")
+    private String orderTopicName;
 
     @Override
     public List<OrderDTO> findAll() {
@@ -62,7 +66,7 @@ public class OrderServiceImpl implements OrderService {
                 : Optional.empty();
 
         optOrder.ifPresent(o ->
-                kafkaTemplate.send("job4j_orders", o)
+                kafkaTemplate.send(orderTopicName, o)
         );
 
         return optOrder;
