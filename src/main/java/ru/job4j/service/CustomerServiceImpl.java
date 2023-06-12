@@ -28,14 +28,14 @@ public class CustomerServiceImpl implements CustomerService {
 
     @Override
     public Optional<Customer> save(Customer customer) {
+        Optional<Customer> res = Optional.empty();
         try {
             customerRepository.save(customer);
+            res = Optional.of(customer);
         } catch (Exception e) {
             log.error("Save or Update was wrong", e);
         }
-        return customer.getId() != 0
-                ? Optional.of(customer)
-                : Optional.empty();
+        return res;
     }
 
     @Override

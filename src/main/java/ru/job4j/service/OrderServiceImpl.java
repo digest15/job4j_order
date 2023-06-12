@@ -53,21 +53,16 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public Optional<OrderDTO> save(Order order) {
+        Optional<OrderDTO> optOrder = Optional.empty();
         try {
             orderRepository.save(order);
             orderStatusService.save(new OrderStatusDTO(order.getId(), Status.NEW));
-
         } catch (Exception e) {
             log.error("Save or Update was wrong", e);
         }
 
-        Optional<OrderDTO> optOrder = order.getId() != 0
-                ? Optional.of(mapOrderToOrderDTO(order))
-                : Optional.empty();
-
-        optOrder.ifPresent(o ->
-                kafkaTemplate.send(orderTopicName, o)
-        );
+        kafkaTemplate.send(orderTopicName, order);
+        optOrder = Optional.of(mapOrderToOrderDTO(order));
 
         return optOrder;
     }

@@ -60,7 +60,9 @@ public class OrderStatusServiceImpl implements OrderStatusService {
     @Override
     @KafkaListener(topics = "job4j_orders_status")
     public void receiveStatus(OrderStatus orderStatus) {
-        log.debug(">>>>>>>>>>>>>>>>>> " + orderStatus);
+        if (log.isDebugEnabled()) {
+            log.debug(orderStatus.toString());
+        }
 
         orderStatus.setId(0);
         Optional<OrderStatus> saved = save(orderStatus);
@@ -71,14 +73,13 @@ public class OrderStatusServiceImpl implements OrderStatusService {
     }
 
     private Optional<OrderStatus> save(OrderStatus orderStatus) {
+        Optional<OrderStatus> res = Optional.empty();
         try {
-            orderStatus = orderStatusRepository.save(orderStatus);
+            orderStatusRepository.save(orderStatus);
+            res = Optional.of(orderStatus);
         } catch (Exception e) {
             log.error("Save or Update was wrong", e);
         }
-
-        return orderStatus != null
-                ? Optional.of(orderStatus)
-                : Optional.empty();
+        return res;
     }
 }
